@@ -830,3 +830,173 @@ comisiones — Analysis
 
 ❯ 1. forget estatus and do not use as filter. 2. especial comisions should be kept as option A. 3. count as n_sesiones_perm. 4. use most recent name. 5.
   add binary flags for the comisiones. 6. collapse into presidente_comision binary.
+
+
+
+_________________________________
+
+Diagnosis: trayectoria_administrativa + flagged ACADÉMICA section
+
+  Root cause: scraper emits a single flat JSON array for
+  trayectoria_administrativa that bleeds into other sections. Each new
+  trajectory section is marked with a sentinel: {"Del año": "TRAYECTORIA
+  ACADÉMICA", "Al año": "", "Experiencia": ""}. All entries that follow it
+  — until the next sentinel — are academic records that also appear in the
+  dedicated trayectoria_academica column.
+
+  Current ETL handling: _extract_trayectoria_admin (line 591) already
+  filters these via _RE_TRAY_HEADER — correct. No data is being
+  double-counted.
+
+  The gap: _extract_trayectorias (line 704) converts trayectoria_academica
+  into just n_trayectoria_academica (a raw count), discarding 31,934
+  entries of rich content: degree types, fields, institution names.
+
+  ---
+  Data profile
+
+  ┌────────────────────────────────────────────────┬────────┐
+  │                                                │ Count  │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Total academic entries across all legislaturas │ 31,934 │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Entries with foreign institution hints         │ 732    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Degree types                                   │        │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Licenciatura                                   │ 3,581  │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Diplomado                                      │ 2,374  │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Maestría                                       │ 1,575  │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Especialidad                                   │ 548    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Bachillerato                                   │ 449    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Doctorado                                      │ 297    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Top institutions                               │        │
+  ├────────────────────────────────────────────────┼────────┤
+  │ UNAM                                           │ 430    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ Iberoamericana                                 │ 150    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ U. de Guadalajara                              │ 102    │
+  ├────────────────────────────────────────────────┼────────┤
+  │ ITESM                                          │ 93     │
+  ├────────────────────────────────────────────────┼────────┤
+  │ ITAM                                           │ 80     │
+  └────────────────────────────────────────────────┴────────┘
+
+  ---
+  Proposed extraction: _extract_trayectoria_academica()
+
+  Add a new function to transform.py replacing the simple count in
+  _extract_trayectorias. Same regex pattern as _extract_trayectoria_admin.
+
+  Variables to generate:
+
+  # Degree level ordinal (max achieved)
+  max_grado_acad        0=none, 1=bachillerato, 2=licenciatura,
+                        3=especialidad, 4=maestría, 5=doctorado
+
+  # Counts per type
+  n_licenciaturas       n_maestrias       n_doctorados
+  n_especialidades      n_diplomados
+
+  # Binary flags
+  tiene_posgrado        (maestría or doctorado)
+  tiene_doctorado
+  estudios_en_extranjero
+
+  # Field of study (binary, primary field per diputado)
+  campo_derecho         campo_economia      campo_ingenieria
+  campo_medicina        campo_cs_politicas  campo_educacion
+  campo_sociologia      campo_comunicacion
+
+  # Institution tier (binary)
+  univ_publica_nacional   (UNAM, IPN, UAM, UV, etc.)
+  univ_privada_elite      (ITESM, ITAM, Iberoamericana,
+                           Anáhuac, Escuela Libre de Derecho)
+  univ_extranjera
+
+  # Top-10 institution binary flags (by frequency)
+  acad_unam   acad_itesm   acad_itam   acad_ibero
+  acad_udg    acad_ipn     acad_uam    acad_anahuac
+  acad_uanl   acad_uv
+
+  Implementation sketch (fits existing ETL pattern):
+
+  _DEGREE_LEVELS = [
+      (5, re.compile(r'\bdoctorado\b|\bphd\b|\bdoctor\s+en\b', re.I)),
+      (4, re.compile(r'\bmaestría\b|\bmaestria\b|\bmaster\b|\bmba\b',
+  re.I)),
+      (3, re.compile(r'\bespecialidad\b|\bespecialización\b', re.I)),
+      (2, re.compile(r'\bdiplomado\b', re.I)),
+      (1, re.compile(r'\blicenciatura\b|\bingeniería\b|\bmedicin[ao]\b',
+  re.I)),
+      (0, re.compile(r'\bbachillerato\b|\bpreparatoria\b|\bsecundaria\b',
+  re.I)),
+  ]
+
+  _FIELD_FLAGS = [
+      ('campo_derecho',        re.compile(r'\bderecho\b|\bjurídic[ao]\b',
+  re.I)),
+      ('campo_economia',       re.compile(r'\beconomía\b|\badministración\b
+  |\bcontaduría\b|\bnegocios\b', re.I)),
+      ('campo_ingenieria',     re.compile(r'\bingeniería\b', re.I)),
+      ('campo_medicina',
+  re.compile(r'\bmedicina\b|\bcirujano\b|\benfermería\b', re.I)),
+      ('campo_cs_politicas',   re.compile(r'\bciencias\s+pol[ií]ticas\b|\br
+  elaciones\s+internacionales\b', re.I)),
+      ('campo_educacion',      re.compile(r'\bpedagogía\b|\beducación\b',
+  re.I)),
+      ('campo_sociologia',
+  re.compile(r'\bsociología\b|\bciencias\s+sociales\b', re.I)),
+      ('campo_comunicacion',
+  re.compile(r'\bperiodismo\b|\bcomunicación\b', re.I)),
+  ]
+
+  _UNIV_PUBLICA = re.compile(
+      r'\bunam\b|\bipn\b|\buam\b|\buniversidad\s+(?:autónoma|veracruzana|'
+      r'michoacana|de\s+guadalajara|de\s+colima|de\s+guanajuato)\b',
+      re.I
+  )
+  _UNIV_PRIVADA_ELITE = re.compile(
+      r'\bitesm\b|\bitam\b|\biberoamericana\b|\banáhuac\b|\banahuac\b'
+      r'|\bescuela\s+libre\s+de\s+derecho\b|\bpanamericana\b',
+      re.I
+  )
+  _UNIV_EXTRANJERA = re.compile(
+      r'\b(?:london|harvard|oxford|yale|sorbonne|cambridge|columbia|'
+      r'stanford|alemania|españa|francia|estados\s+unidos|eeuu|eua|'
+      r'reino\s+unido|england|england|new\s+york)\b',
+      re.I
+  )
+
+  _TOP_UNIVS = [
+      ('acad_unam',  re.compile(r'\bunam\b', re.I)),
+      ('acad_itesm',
+  re.compile(r'\bitesm\b|\btecnol[oó]gico\s+de\s+monterrey\b', re.I)),
+      ('acad_itam',  re.compile(r'\bitam\b', re.I)),
+      ('acad_ibero', re.compile(r'\biberoamericana\b', re.I)),
+      ('acad_udg',   re.compile(r'\buniversidad\s+de\s+guadalajara\b',
+  re.I)),
+      ('acad_ipn',   re.compile(r'\bipn\b', re.I)),
+      ('acad_uam',   re.compile(r'\buam\b', re.I)),
+      ('acad_anahuac', re.compile(r'\ban[aá]huac\b', re.I)),
+      ('acad_uanl',
+  re.compile(r'\buanl\b|\buniversidad\s+autónoma\s+de\s+nuevo\s+le[oó]n\b',
+   re.I)),
+      ('acad_uv',    re.compile(r'\buniversidad\s+veracruzana\b', re.I)),
+  ]
+
+  Integration: replace the trayectoria_academica entry in
+  _extract_trayectorias's trayectoria_cols dict with a call to
+  _extract_trayectoria_academica() before that loop — same pattern as
+  _extract_trayectoria_admin precedes _extract_trayectorias.
+
+_________________________________
+
+

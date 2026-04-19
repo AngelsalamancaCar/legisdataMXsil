@@ -100,9 +100,7 @@ CSV_COLUMNS = [
     # --- Identificadores ---
     "diputado_id",          # ID único estable entre legislaturas: sha256(nombre_norm|nacimiento)[:12]
     "referencia",           # ID numérico del perfil en el SIL (varía por legislatura)
-    "legislatura_nombre",   # Nombre romano de la legislatura (LXVI, etc.)
     "legislatura_num",      # Número entero de la legislatura (66, etc.)
-    "partido_nombre",       # Nombre completo del partido político
     "profile_url",          # URL directa al perfil raspado
     # --- Datos personales (tabla TFtable) ---
     "nombre",               # Nombre completo del legislador (extraído de tituloN)
@@ -113,7 +111,6 @@ CSV_COLUMNS = [
     "entidad",
     "ciudad",
     "principio_de_eleccion",
-    "region_de_eleccion",
     "ubicacion",
     "correo_electronico",
     "telefono",
@@ -135,7 +132,6 @@ CSV_COLUMNS = [
     "organos_de_gobierno",                 # [{...}] — participación en órganos de gobierno
     "observaciones",                       # [{...}] — notas varias del perfil
     # --- Estado del legislador ---
-    "en_licencia",  # True si tomó licencia y fue sustituido por suplente (ENFUNCION=N)
     # --- Diagnóstico ---
     "error",  # Vacío si todo salió bien; mensaje de error en caso contrario
 ]
@@ -753,10 +749,7 @@ def run_legislature(leg_name, leg_num, run_dir):
                 time.sleep(DELAY)
 
                 perfil = scrape_profile(ref)
-                perfil["legislatura_nombre"] = leg_name
                 perfil["legislatura_num"] = leg_num
-                perfil["partido_nombre"] = partido["name"]
-                perfil["en_licencia"] = partido["en_licencia"]
 
                 escritor.writerow(perfil)
                 archivo.flush()  # guardar inmediatamente en disco

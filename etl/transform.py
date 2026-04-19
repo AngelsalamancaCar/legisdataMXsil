@@ -328,7 +328,6 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
       n_comisiones            — membresías en comisiones regulares + Especiales
                                 (excluye sesiones de Comisión Permanente)
       n_comisiones_especiales — subconjunto de n_comisiones con tipo Especial
-      n_sesiones_perm         — entradas de Comisión Permanente (Com. Perm.)
       n_presidencias          — roles de Presidente, Vicepresidente o Copresidente
       n_secretarias           — roles de Secretario
       presidente_comision     — 1 si tuvo al menos un rol presidencial
@@ -348,7 +347,6 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
     def _process_row(items: list) -> dict:
         n_com = 0
         n_esp = 0
-        n_perm = 0
         n_pdte = 0
         n_sec = 0
         comision_set: set[str] = set()
@@ -359,8 +357,7 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
             canon, cuerpo, tipo = _parse_comision_name(raw)
 
             if cuerpo == "Com. Perm.":
-                n_perm += 1
-                # Com.Perm. puesto still counts for leadership tallies
+                pass  # Com.Perm. puesto still counts for leadership tallies
             else:
                 n_com += 1
                 if tipo == "Especial":
@@ -377,7 +374,6 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
         return {
             "n_comisiones": n_com,
             "n_comisiones_especiales": n_esp,
-            "n_sesiones_perm": n_perm,
             "n_presidencias": n_pdte,
             "n_secretarias": n_sec,
             "presidente_comision": int(n_pdte > 0),
@@ -389,7 +385,7 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
     result_df = pd.DataFrame(list(results), index=df.index)
 
     scalar_cols = [
-        "n_comisiones", "n_comisiones_especiales", "n_sesiones_perm",
+        "n_comisiones", "n_comisiones_especiales",
         "n_presidencias", "n_secretarias", "presidente_comision", "lider_comision",
     ]
     for col in scalar_cols:
@@ -404,12 +400,11 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
         n_flag_cols += 1
 
     logger.info(
-        "[%s] comisiones: n_com=%d, especiales=%d, perm=%d | "
+        "[%s] comisiones: n_com=%d, especiales=%d | "
         "presidentes=%d, secretarios=%d, líderes=%d | flags=%d",
         leg_name,
         df["n_comisiones"].sum(),
         df["n_comisiones_especiales"].sum(),
-        df["n_sesiones_perm"].sum(),
         df["n_presidencias"].sum(),
         df["n_secretarias"].sum(),
         df["lider_comision"].sum(),
@@ -424,8 +419,9 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
 # Extracción de trayectoria_administrativa
 # ---------------------------------------------------------------------------
 
-# Marca entradas basura: el scraper filtró encabezados de sección en Del año.
-_RE_TRAY_HEADER = re.compile(r"TRAYECTORIA", re.IGNORECASE)
+# Guarda defensiva: normalize.py elimina los centinelas antes de llegar aquí,
+# pero este filtro protege contra datos crudos no normalizados.
+_RE_TRAY_HEADER = re.compile(r"TRAYECTORIA|ESCOLARIDAD|INVESTIGACIÓN|OTROS RUBROS", re.IGNORECASE)
 
 # --- Flags de rol jerárquico ---
 # Ordered most-specific first so director_general is caught before director.
@@ -676,6 +672,124 @@ def _extract_trayectoria_admin(df: pd.DataFrame, leg_name: str = "?") -> pd.Data
     return df
 
 
+# ---------------------------------------------------------------------------
+# Extracción de trayectoria_academica
+# ---------------------------------------------------------------------------
+
+_ACAD_POSGRADO  = re.compile(r'\bmaestría\b|\bmaestria\b|\bmaster\b|\bmba\b|\bdoctorado\b|\bphd\b|\bdoctor\s+en\b|\bespecialidad\b|\bespecialización\b', re.I)
+_ACAD_DOCTORADO = re.compile(r'\bdoctorado\b|\bphd\b|\bdoctor\s+en\b', re.I)
+
+_ACAD_UNIV_PUBLICA = re.compile(
+    r'\bunam\b|\bipn\b|\buam\b'
+    r'|\buniversidad\s+(?:autónoma|veracruzana|michoacana|de\s+guadalajara'
+    r'|de\s+colima|de\s+guanajuato|de\s+sonora|de\s+sinaloa|de\s+yucatán'
+    r'|de\s+occidente|de\s+nayarit|de\s+quintana\s+roo)\b'
+    r'|\bua[a-z]{1,3}\b',  # UAM, UANL, UABJ, UAQ, UABC, etc.
+    re.I,
+)
+_ACAD_UNIV_PRIVADA = re.compile(
+    r'\bitesm\b|\btecnológico\s+de\s+monterrey\b|\btecnol[oó]gico\s+de\s+monterrey\b'
+    r'|\bitam\b|\biberoamericana\b|\banáhuac\b|\banahuac\b'
+    r'|\bescuela\s+libre\s+de\s+derecho\b|\bpanamericana\b'
+    r'|\bla\s+salle\b|\bdel\s+valle\s+de\s+m[eé]xico\b'
+    r'|\bcrist[oó]bal\s+col[oó]n\b|\bclaustro\b|\bmonterre[yi]\b'
+    r'|\buniversidad\s+(?:del\s+norte|regiomontana|a[eé]rea)\b',
+    re.I,
+)
+_ACAD_UNIV_EXTRANJERA = re.compile(
+    r'\b(?:london|harvard|oxford|yale|sorbonne|cambridge|columbia'
+    r'|stanford|princeton|georgetown|sciences\s+po'
+    r'|politechnic|polytechnic)\b'
+    r'|\b(?:de\s+)?(?:alemania|españa|francia|estados\s+unidos|eeuu|eua'
+    r'|reino\s+unido|inglaterra|inglaterra|holanda|italia|canadá)\b'
+    r'|\b(?:in|of)\s+(?:london|england|paris|berlin|madrid|rome)\b',
+    re.I,
+)
+
+_ACAD_TOP10: list[tuple[str, re.Pattern]] = [
+    ("acad_unam",    re.compile(r'\bunam\b', re.I)),
+    ("acad_itesm",   re.compile(r'\bitesm\b|\btecnol[oó]gico\s+de\s+monterrey\b', re.I)),
+    ("acad_itam",    re.compile(r'\bitam\b', re.I)),
+    ("acad_ibero",   re.compile(r'\biberoamericana\b', re.I)),
+    ("acad_udg",     re.compile(r'\buniversidad\s+de\s+guadalajara\b', re.I)),
+    ("acad_ipn",     re.compile(r'\bipn\b|\bpolitécnico\s+nacional\b', re.I)),
+    ("acad_uam",     re.compile(r'\buam\b|\buniversidad\s+aut[oó]noma\s+metropolitana\b', re.I)),
+    ("acad_anahuac", re.compile(r'\ban[aá]huac\b', re.I)),
+    ("acad_uanl",    re.compile(r'\buanl\b|\buniversidad\s+aut[oó]noma\s+de\s+nuevo\s+le[oó]n\b', re.I)),
+    ("acad_uv",      re.compile(r'\buniversidad\s+veracruzana\b', re.I)),
+]
+
+_ACAD_BINARY_COLS = [
+    "tiene_posgrado", "tiene_doctorado", "estudios_en_extranjero",
+    "univ_publica", "univ_privada", "univ_extranjera",
+] + [col for col, _ in _ACAD_TOP10]
+
+
+def _extract_trayectoria_academica(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
+    """
+    Extrae variables binarias de 'trayectoria_academica'.
+
+    Columnas generadas (todas 0/1):
+      tiene_posgrado        — al menos una entrada de maestría, doctorado o especialidad
+      tiene_doctorado       — al menos una entrada de doctorado o PhD
+      estudios_en_extranjero — al menos una entrada con institución extranjera
+
+      univ_publica          — asistió a universidad pública (UNAM, IPN, UAM, autónomas estatales)
+      univ_privada          — asistió a universidad privada (ITESM, ITAM, Ibero, Anáhuac, etc.)
+      univ_extranjera       — asistió a institución en el extranjero
+
+      acad_unam … acad_uv   — flags por institución para el top-10 de frecuencia
+
+    La columna 'trayectoria_academica' original se elimina al finalizar.
+    """
+    parsed = df["trayectoria_academica"].apply(_safe_parse) if "trayectoria_academica" in df.columns else None
+
+    if parsed is None:
+        for col in _ACAD_BINARY_COLS:
+            df[col] = 0
+        logger.debug("[%s] trayectoria_academica ausente — rellenado con 0", leg_name)
+        return df
+
+    def _process_row(items: list) -> dict:
+        out = {col: 0 for col in _ACAD_BINARY_COLS}
+        for item in items:
+            exp = item.get("Experiencia", "").strip()
+            if not exp:
+                continue
+            if _ACAD_POSGRADO.search(exp):
+                out["tiene_posgrado"] = 1
+            if _ACAD_DOCTORADO.search(exp):
+                out["tiene_doctorado"] = 1
+            if _ACAD_UNIV_EXTRANJERA.search(exp):
+                out["estudios_en_extranjero"] = 1
+                out["univ_extranjera"] = 1
+            if _ACAD_UNIV_PUBLICA.search(exp):
+                out["univ_publica"] = 1
+            if _ACAD_UNIV_PRIVADA.search(exp):
+                out["univ_privada"] = 1
+            for col, pat in _ACAD_TOP10:
+                if not out[col] and pat.search(exp):
+                    out[col] = 1
+        return out
+
+    results   = parsed.apply(_process_row)
+    result_df = pd.DataFrame(list(results), index=df.index)
+    for col in _ACAD_BINARY_COLS:
+        df[col] = result_df[col].astype(int)
+
+    logger.info(
+        "[%s] trayectoria_academica: posgrado=%d, doctorado=%d, extranjero=%d"
+        " | pub=%d, priv=%d, ext=%d",
+        leg_name,
+        df["tiene_posgrado"].sum(), df["tiene_doctorado"].sum(),
+        df["estudios_en_extranjero"].sum(),
+        df["univ_publica"].sum(), df["univ_privada"].sum(), df["univ_extranjera"].sum(),
+    )
+
+    df.drop(columns=["trayectoria_academica"], inplace=True)
+    return df
+
+
 def _extract_trayectorias(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
     """
     Extrae conteos de entradas de las columnas de trayectoria y secciones auxiliares.
@@ -691,14 +805,14 @@ def _extract_trayectorias(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame
     """
     # Mapa: nombre de columna JSON en el scraper → nombre de conteo en el output.
     # trayectoria_administrativa is handled by _extract_trayectoria_admin (called before this).
+    # trayectoria_academica handled by _extract_trayectoria_academica (called before this).
+    # trayectoria_administrativa handled by _extract_trayectoria_admin (called before this).
     trayectoria_cols = {
         "trayectoria_legislativa":     "n_trayectoria_legislativa",
         "trayectoria_politica":        "n_trayectoria_politica",
-        "trayectoria_academica":       "n_trayectoria_academica",
         "trayectoria_empresarial":     "n_trayectoria_empresarial",
-        "otros_rubros":                "n_otros_rubros",
+        "investigacion_docencia":      "n_investigacion_docencia",   # LXVI+; 0 en legislaturas anteriores
         "organos_de_gobierno":         "n_organos_gobierno",
-        "observaciones":               "n_observaciones",
     }
 
     for raw_col, feat_col in trayectoria_cols.items():
@@ -717,12 +831,11 @@ def _extract_trayectorias(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame
             logger.debug("[%s] %-35s ausente — rellenado con 0", leg_name, raw_col)
 
     logger.info(
-        "[%s] trayectorias extraídas: admin=%d, leg=%d, pol=%d, acad=%d, emp=%d",
+        "[%s] trayectorias extraídas: admin=%d, leg=%d, pol=%d, emp=%d",
         leg_name,
         df["n_trayectoria_admin"].sum(),
         df["n_trayectoria_legislativa"].sum(),
         df["n_trayectoria_politica"].sum(),
-        df["n_trayectoria_academica"].sum(),
         df["n_trayectoria_empresarial"].sum(),
     )
 
@@ -744,7 +857,10 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     Pasos:
       1. Extraer características de 'comisiones' → _extract_comisiones()
       2. Extraer flags estructurados de 'trayectoria_administrativa' → _extract_trayectoria_admin()
-      3. Extraer conteos de todas las demás columnas de trayectoria → _extract_trayectorias()
+         (las columnas ya vienen limpias de normalize.py; el filtro _RE_TRAY_HEADER es defensivo)
+      3. Extraer variables binarias de 'trayectoria_academica' → _extract_trayectoria_academica()
+      4. Extraer conteos de las demás columnas JSON → _extract_trayectorias()
+         (incluye 'investigacion_docencia' extraída por normalize.py de otros_rubros)
 
     Parámetros
     ----------
@@ -757,7 +873,7 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()  # no modificar el DataFrame que recibió pipeline.py
 
     # Identificar la legislatura desde la primera fila para los mensajes de log.
-    leg_name = df["legislatura_nombre"].iloc[0] if "legislatura_nombre" in df.columns else "?"
+    leg_name = str(df["legislatura_num"].iloc[0]) if "legislatura_num" in df.columns else "?"
 
     # Paso 1: comisiones (requiere lógica adicional para roles de liderazgo).
     df = _extract_comisiones(df, leg_name)
@@ -765,7 +881,10 @@ def transform(df: pd.DataFrame) -> pd.DataFrame:
     # Paso 2: trayectoria_administrativa (flags de rol, institución, seniority, juventud).
     df = _extract_trayectoria_admin(df, leg_name)
 
-    # Paso 3: todas las demás columnas JSON (solo necesitan conteo de entradas).
+    # Paso 3: trayectoria_academica (flags binarios de grado, institución, extranjero).
+    df = _extract_trayectoria_academica(df, leg_name)
+
+    # Paso 4: todas las demás columnas JSON (solo necesitan conteo de entradas).
     df = _extract_trayectorias(df, leg_name)
 
     logger.info(

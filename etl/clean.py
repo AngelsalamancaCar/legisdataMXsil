@@ -68,7 +68,7 @@ DROP_COLUMNS = [
     "redes_sociales",  # nula en el 100% de los registros de todas las legislaturas
     "error",  # nula en el 100% de los registros (se llenó solo si el scraper falló)
     "profile_url",  # URL del perfil en el SIL — identificador, no característica
-    "numero_de_la_legislatura",  # redundante con legislatura_nombre
+    "numero_de_la_legislatura",  # redundante con legislatura_num
     "periodo_de_la_legislatura",  # redundante con legislatura_num
     "_source_file",  # columna auxiliar creada por load.py, sin valor analítico
     "licencias_reincorporaciones",  # eliminada del análisis
@@ -90,56 +90,10 @@ JSON_COLUMNS = [
     "trayectoria_academica",
     "trayectoria_empresarial",
     "otros_rubros",
+    "investigacion_docencia",   # extraída de otros_rubros por normalize.py (LXVI+)
     "organos_de_gobierno",
     "observaciones",
 ]
-
-# Columna de entidades se normaliza para simplificar analisis.
-# clean.py las normaliza a códigos de entidad (ej. "AGS" para Aguascalientes)
-ENTIDAD_MAPPING = {
-    "Aguascalientes": "AGS",
-    "Baja California": "BC",
-    "Baja California Sur": "BCS",
-    "Campeche": "CAMP",
-    "Chiapas": "CHIS",
-    "Chihuahua": "CHIH",
-    "Ciudad de México": "CDMX",
-    "Ciudad de Mexico": "CDMX",
-    "Ciudad de mexico": "CDMX",
-    "Coahuila de Zaragoza": "COAH",
-    "Coahuila": "COAH",
-    "Colima": "COL",
-    "Durango": "DGO",
-    "Guanajuato": "GTO",
-    "Guerrero": "GRO",
-    "Hidalgo": "HGO",
-    "Jalisco": "JAL",
-    "Estado de México": "MEX",
-    "Estado de Mexico": "MEX",
-    "México": "MEX",
-    "Michoacán de Ocampo": "MICH",
-    "Michoacán": "MICH",
-    "Michoacan": "MICH",
-    "Morelos": "MOR",
-    "Nayarit": "NAY",
-    "Nuevo León": "NL",
-    "Oaxaca": "OAX",
-    "Puebla": "PUE",
-    "Querétaro": "QRO",
-    "Quintana Roo": "QR",
-    "San Luis Potosí": "SLP",
-    "Sinaloa": "SIN",
-    "Sonora": "SON",
-    "Tabasco": "TAB",
-    "Tamaulipas": "TAMPS",
-    "Tlaxcala": "TLAX",
-    "Veracruz de Ignacio de la Llave": "VER",
-    "Veracruz": "VER",
-    "Yucatán": "YUC",
-    "Zacatecas": "ZAC",
-    "Distrito Federal": "CDMX",
-    "DF": "CDMX",
-}
 
 # ---------------------------------------------------------------------------
 # Funciones auxiliares de transformación
@@ -610,12 +564,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
       2. Convertir legislatura_num a entero.
       3. Parsear nacimiento → y_nacimiento + edad_al_tomar_cargo.
       4. Codificar categorías: grado de estudios, principio de elección, partido.
-      5. Codificar en_licencia y suplente_referencia como enteros.
+      5. Codificar suplente_referencia como entero.
       6. Crear flags de presencia para campos de contacto.
       7. Calcular longitud de texto para campos descriptivos.
-      8. Normalizar campos geográficos (entidad, ciudad).
-      9. Eliminar columnas de texto ya procesadas.
-     10. Establecer diputado_id como índice.
+      8. Eliminar columnas de texto ya procesadas.
+      9. Establecer diputado_id como índice.
 
     Parámetros
     ----------
@@ -630,7 +583,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # Identificar la legislatura para incluirla en los mensajes de log.
     leg_name = (
-        df["legislatura_nombre"].iloc[0] if "legislatura_nombre" in df.columns else "?"
+        str(df["legislatura_num"].iloc[0]) if "legislatura_num" in df.columns else "?"
     )
 
     # --- 1. Eliminar columnas inútiles ---
@@ -732,26 +685,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df["partido"] = _encode_partido(df.get("partido", pd.Series(dtype=str)))
     parties = sorted(df["partido"].unique().tolist())
     logger.info("[%s] partido: %d únicos — %s", leg_name, len(parties), parties)
-    if "partido_nombre" in df.columns:
-        # Nombre completo del partido: solo limpiar espacios, no codificar.
-        df["partido_nombre"] = df["partido_nombre"].str.strip().fillna("DESCONOCIDO")
-
-    # --- 5a. en_licencia → 0 / 1 ---
-    # El scraper guarda el booleano de Python como texto ("True"/"False").
-    df["en_licencia"] = (
-        df["en_licencia"]
-        .map({"True": 1, "False": 0, "true": 1, "false": 0, "1": 1, "0": 0})
-        .fillna(0)
-        .astype(int)
-    )
-    n_licencia = df["en_licencia"].sum()
-    logger.info(
-        "[%s] en_licencia: %d en licencia, %d activos",
-        leg_name,
-        n_licencia,
-        len(df) - n_licencia,
-    )
-
     # --- 5b. suplente_referencia → int (0 si no tiene suplente) ---
     df["suplente_referencia"] = (
         pd.to_numeric(
@@ -769,28 +702,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     # --- 5c. referencia → int (ID del perfil en el SIL) ---
     df["referencia"] = pd.to_numeric(df["referencia"], errors="coerce").astype("Int64")
 
-    # --- 6. Flags de presencia para campos de contacto ---
-    # Convertir campos de texto libre en variables binarias para ML:
-    # no importa el contenido, solo si el campo existe o no.
-    df["tiene_correo"] = _presence_flag(
-        df.get("correo_electronico", pd.Series(dtype=str))
-    )
-    df["tiene_telefono"] = _presence_flag(df.get("telefono", pd.Series(dtype=str)))
-    df["tiene_ubicacion"] = _presence_flag(df.get("ubicacion", pd.Series(dtype=str)))
-    logger.info(
-        "[%s] flags de contacto: correo=%d, telefono=%d, ubicacion=%d",
-        leg_name,
-        df["tiene_correo"].sum(),
-        df["tiene_telefono"].sum(),
-        df["tiene_ubicacion"].sum(),
-    )
-
     # --- 7. Normalización y métricas de texto para campos descriptivos ---
     # 7a. preparacion_academica → categoría canónica (área de formación) +
     #     conteo de palabras como indicador de riqueza/especificidad del perfil.
     prep_series = df.get("preparacion_academica", pd.Series(dtype=str))
     df["area_formacion"] = _normalize_preparacion(prep_series)
-    df["n_palabras_preparacion"] = _text_length(prep_series)
 
     area_counts = df["area_formacion"].value_counts().to_dict()
     n_otra = area_counts.get("Otra", 0)
@@ -800,12 +716,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         df["area_formacion"].nunique(),
         n_otra,
         dict(sorted(area_counts.items(), key=lambda x: -x[1])),
-    )
-
-    logger.debug(
-        "[%s] n_palabras_preparacion: media=%.1f",
-        leg_name,
-        df["n_palabras_preparacion"].mean(),
     )
 
     # 7b. experiencia_legislativa → flags binarios por tipo de cargo previo.
@@ -825,85 +735,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         df["fue_senador"].sum(),
         (df["n_cargos_legislativos_prev"] == 0).sum(),
     )
-
-    # --- 8. Campos geográficos: normalizar capitalización y rellenar vacíos ---
-    # Regex precompilados (a nivel módulo, fuera de la función)
-    _RE_ENTIDAD = re.compile(
-        r"Entidad:\s*(.+?)(?=\s+(?:Distrito|Circunscripci[oó]n)\s*:|$)", re.IGNORECASE
-    )
-    _RE_CIRC_DIS = re.compile(
-        r"(?:Distrito|Circunscripci[oó]n)\s*:\s*(.+?)$", re.IGNORECASE
-    )
-
-    def _parse_region(texto: str) -> tuple[str, str]:
-        """
-        Extrae (entidad, circ_dis_electoral) desde 'region_de_eleccion'.
-        Formato esperado: 'Entidad: <nombre> Distrito: <n> (<ciudad>)'
-                          'Entidad: <nombre> Circunscripcion: <n>'
-        """
-        if not isinstance(texto, str) or not texto.strip():
-            return "DESCONOCIDO", "DESCONOCIDO"
-
-        entidad = "DESCONOCIDO"
-        circ_dis = "DESCONOCIDO"
-
-        m_ent = _RE_ENTIDAD.search(texto)
-        if m_ent:
-            entidad = m_ent.group(1).strip()
-
-        m_cd = _RE_CIRC_DIS.search(texto)
-        if m_cd:
-            circ_dis = m_cd.group(1).strip()
-
-        return entidad, circ_dis
-
-    if "region_de_eleccion" in df.columns:
-        # Normalizar la columna fuente
-        df["region_de_eleccion"] = (
-            df["region_de_eleccion"]
-            .astype(str)
-            .str.strip()
-            .replace({"": "DESCONOCIDO", "nan": "DESCONOCIDO", "None": "DESCONOCIDO"})
-            .fillna("DESCONOCIDO")
-        )
-
-        # Extraer ambos campos en una sola pasada
-        parsed = df["region_de_eleccion"].apply(_parse_region)
-        df["entidad"] = parsed.map(lambda x: x[0])
-        df["circ_dis_electoral"] = parsed.map(lambda x: x[1])
-
-        # Mapear entidad al código corto (TAMPS, CDMX, etc.)
-        # Si no se encuentra en el mapping, se conserva el nombre original con title-case
-        entidad_original = df["entidad"].copy()
-        df["entidad"] = (
-            df["entidad"].map(ENTIDAD_MAPPING).fillna(entidad_original.str.title())
-        )
-
-        # Marcar como DESCONOCIDO lo que quedó vacío
-        df["entidad"] = df["entidad"].replace("", "DESCONOCIDO").fillna("DESCONOCIDO")
-        df["circ_dis_electoral"] = (
-            df["circ_dis_electoral"].replace("", "DESCONOCIDO").fillna("DESCONOCIDO")
-        )
-
-        n_desc_ent = (df["entidad"] == "DESCONOCIDO").sum()
-        n_desc_cd = (df["circ_dis_electoral"] == "DESCONOCIDO").sum()
-        if n_desc_ent:
-            logger.debug(
-                "[%s] entidad: %d registros sin entidad extraíble → 'DESCONOCIDO'",
-                leg_name,
-                n_desc_ent,
-            )
-        if n_desc_cd:
-            logger.debug(
-                "[%s] circ_dis_electoral: %d registros sin distrito/circ. → 'DESCONOCIDO'",
-                leg_name,
-                n_desc_cd,
-            )
-    else:
-        logger.warning(
-            "[%s] No existe columna 'region_de_eleccion'; no se derivan entidad ni circ_dis_electoral",
-            leg_name,
-        )
 
     # --- 9. Eliminar columnas de texto ya procesadas ---
     # Después de extraer flags y conteos de palabras, el texto original

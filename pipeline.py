@@ -38,6 +38,7 @@ from datetime import datetime
 
 # Importaciones del paquete ETL — cada módulo hace una sola cosa.
 from etl.load import load_legislature, load_all, LEGISLATURAS, latest_scraper_run
+from etl.normalize import normalize
 from etl.clean import clean
 from etl.transform import transform
 from etl.save import save_legislature, DATA_DIR
@@ -91,11 +92,12 @@ def run_one(leg_name: str, run_dir: str, raw_dir: str) -> None:
     """
     Ejecuta el pipeline completo para una sola legislatura.
 
-    Encadena los cuatro pasos del ETL en orden:
+    Encadena los cinco pasos del ETL en orden:
       1. load_legislature() → lee el CSV crudo del scraper
-      2. clean()            → limpia y normaliza tipos
-      3. transform()        → desanida columnas JSON
-      4. save_legislature() → escribe el CSV procesado
+      2. normalize()        → elimina desbordamiento de secciones en trayectorias
+      3. clean()            → limpia y normaliza tipos
+      4. transform()        → desanida columnas JSON
+      5. save_legislature() → escribe el CSV procesado
 
     Parámetros
     ----------
@@ -109,13 +111,16 @@ def run_one(leg_name: str, run_dir: str, raw_dir: str) -> None:
     # Paso 1: cargar datos crudos desde la corrida del scraper indicada.
     raw = load_legislature(leg_name, raw_dir)
 
-    # Paso 2: limpiar y normalizar (tipos, categorías, flags, etc.).
-    cleaned = clean(raw)
+    # Paso 2: eliminar desbordamiento de secciones en columnas de trayectoria.
+    normalized = normalize(raw)
 
-    # Paso 3: extraer características de columnas JSON (comisiones, trayectorias).
+    # Paso 3: limpiar y normalizar (tipos, categorías, flags, etc.).
+    cleaned = clean(normalized)
+
+    # Paso 4: extraer características de columnas JSON (comisiones, trayectorias).
     processed = transform(cleaned)
 
-    # Paso 4: guardar el resultado en data/etl/<run_ts>/<leg>_<ts>.csv.
+    # Paso 5: guardar el resultado en data/etl/<run_ts>/<leg>_<ts>.csv.
     save_legislature(processed, leg_name, run_dir)
 
     logger.info("FIN   %s", leg_name)
