@@ -1,4 +1,8 @@
+# Raspador — descarga y parseo de perfiles HTML del SIL
 requests>=2.33.1
 beautifulsoup4>=4.14.3
 urllib3>=2.6.3
+
+# Pipeline ETL — procesamiento y transformación de DataFrames
 pandas>=2.0.0
+numpy>=1.24.0

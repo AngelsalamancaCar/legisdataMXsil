@@ -5,54 +5,54 @@ VENV_PY  := .venv/bin/python
 DATA_DIR := data
 
 help:
-	@echo "Usage:"
-	@echo "  make install              Install dependencies"
+	@echo "Uso:"
+	@echo "  make install              Instalar dependencias en entorno virtual"
 	@echo ""
-	@echo "  make scrape LEG=LXVI     Scrape one legislature"
-	@echo "  make scrape-all          Scrape all legislatures (LVII–LXVI)"
+	@echo "  make scrape LEG=LXVI     Raspar una legislatura"
+	@echo "  make scrape-all          Raspar todas las legislaturas (LVII–LXVI)"
 	@echo ""
-	@echo "  make etl LEG=LXVI        Run ETL pipeline on one legislature"
-	@echo "  make etl-all             Run ETL pipeline on all legislatures"
+	@echo "  make etl LEG=LXVI        Ejecutar el pipeline ETL en una legislatura"
+	@echo "  make etl-all             Ejecutar el pipeline ETL en todas las legislaturas"
 	@echo ""
-	@echo "  make all LEG=LXVI        Scrape + ETL for one legislature"
-	@echo "  make all-full            Scrape + ETL for all legislatures"
+	@echo "  make all LEG=LXVI        Raspar + ETL para una legislatura"
+	@echo "  make all-full            Raspar + ETL para todas las legislaturas"
 	@echo ""
-	@echo "  make clean               Remove output CSV, logs, processed data"
+	@echo "  make clean               Eliminar CSVs, logs y datos procesados de corridas anteriores"
 
 install:
 	$(PYTHON) -m venv .venv
 	$(VENV_PY) -m pip install -r requirements.txt
 
-# ── Scraper (hunting cave) ────────────────────────────────────────────────────
+# ── Raspador — produce data/scraper/<run_ts>/<LEGISLATURA>.csv ────────────────
 
 scrape:
 ifndef LEG
-	$(error LEG required. Usage: make scrape LEG=LXVI)
+	$(error LEG requerido. Uso: make scrape LEG=LXVI)
 endif
 	$(VENV_PY) scraper.py --legislatura $(LEG)
 
 scrape-all:
 	$(VENV_PY) scraper.py --legislatura all
 
-# ── ETL pipeline (cooking + storage caves) ───────────────────────────────────
+# ── Pipeline ETL — lee data/scraper/, escribe data/etl/<run_ts>/ ─────────────
 
 etl:
 ifndef LEG
-	$(error LEG required. Usage: make etl LEG=LXVI)
+	$(error LEG requerido. Uso: make etl LEG=LXVI)
 endif
 	$(VENV_PY) pipeline.py --legislatura $(LEG) $(if $(VERBOSE),--verbose,)
 
 etl-all:
 	$(VENV_PY) pipeline.py --legislatura all $(if $(VERBOSE),--verbose,)
 
-# ── Combined ─────────────────────────────────────────────────────────────────
+# ── Combinados ────────────────────────────────────────────────────────────────
 
 all: scrape etl
 
 all-full: scrape-all etl-all
 
-# ── Cleanup ──────────────────────────────────────────────────────────────────
+# ── Limpieza — elimina todos los directorios de corrida y logs sueltos ────────
 
 clean:
-	rm -f $(DATA_DIR)/*.csv $(DATA_DIR)/*.log scraper.log
-	rm -f $(DATA_DIR)/processed/*.csv
+	rm -rf $(DATA_DIR)/scraper/ $(DATA_DIR)/etl/
+	rm -f scraper.log
