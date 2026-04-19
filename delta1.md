@@ -1,3 +1,66 @@
+1. Mantener diputado_id como id de cada instancia de un diputado e incluirla en la tabla de datos resultante del etl.
+
+2. Mantener la columna legislatura_nombre y legislatura_num como estan e incluirla en la tabla de datos resultante del etl.
+
+3.escribir un mapeo de la columna partido_nombre a sus versiones cortas como Partido Revolucionario Institucional a PRI, Partido de la Revolucion Democratica a PRD, etc.
+  RESUELTO.
+
+4. Mantener profile_URL
+
+5. Aplicar una funcion de normalizacion de texto llamada norm_str que remueva caracteres especiales, mayusculas, espacios extras, etc.
+
+6. Mantener la columna profile_URL.
+
+7. Aplicar normalizacion norm_str a nombre.
+
+8. Eliminar numero_de_la_legislatura porque duplica registros previos.  
+  RESUELTO
+
+9. Transformar periodo_de_la_legislatura a yy_inicio_leg y solo dejar el ano de inicio de la legislatura para calcular edad.
+  RESUELTO
+
+10. Mantener columna partido y verificar con columna partido_nombre para descartar errores.
+  RESUELTO. Se creo mapeo para partidos y se normalizaron los nombres para todas las legislaturas.
+
+11. Transformar la columna nacimiento a yy_nacimiento para solo guardar el ano de nacimiento y agregar con base en ello la columna edad_inicio_legislatura.
+  RESUELTO.
+
+12. Remover entidad y ciudad 
+  RESUELTO
+
+13. Transformar columna principio_de_eleccion con un mapeo de TIPO_ELECCION_MAPPING = {
+    "Mayoria Relativa": "mr",
+    "Mayoría Relativa": "mr",
+    "Representacion Proporcional": "rp",
+    "Representación Proporcional": "rp",
+    "Representación proporcional": "rp",
+  RESUELTO (se ajusto para valor binario en la var   mayoria_relativa)
+
+14. modificar la columna region_de_eleccion. Normalizar con funcion norm_str, Extraer lo que sale despues de "Entidad:" y ponerlo en columna "entidad" y poner lo que esale despues de "Distrito:" en columna "distrito". 
+  RESUELTO.
+
+15. Remover columnas ubicacion, correo_electronico, telefono.
+  RESUELTO
+
+16. Mantener la columna suplente y su referencia (evaluar que es).
+  
+
+17. Transformar ultimo_grado_de_estudios en max_edu con mapeo numerico 1,2,3 etc segun mejores practicas.
+  RESUELTO
+
+18. Mantener preparacion_academica, pero evaluar como hacer un mapeo que permita explotar datos.
+  RESUELTO. se hizo mapeo y se mantuvo variable.
+
+19. Modificar experiencia_legislativa para que columna genere binarios de senador, dip_federal, dip_local.
+  RESUELTO.
+
+20. eliminar redes_sociales
+  RESUELTO
+
+21. 
+
+
+
 1. columna anio_nacimiento cambiar nombre a y_nacimiento
 2. eliminar las columnas tiene_suplente, tiene_telefono, tiene_ubicacion
 3. Agregar 2 varibles binarias para reordenar legislativa clasificacion de experiencia legislativa. Si experiencia_legislativa = "Senador" se genera columna exp_senado = 1, si experiencia_legislativa = "Diputado Federal" se genera columna exp_dip_federal = 1, si experiencia_legislativa = "Diputado Local" se genera columna exp_dip_local=1. 
@@ -273,3 +336,4 @@ Esta se debe transformar a una version desagregada en horizontal con una agrupac
         "Experiencia": "Reconocimiento de la Secretaría de Capacitación de la Confederación Nacional de Oradores Mexicanos."
     }
 ]
+Transformar para dividirlo en 

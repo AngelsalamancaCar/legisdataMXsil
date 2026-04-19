@@ -1,17 +1,48 @@
 #!/usr/bin/env python3
 """
-Raspador de perfiles legislativos — SIL (Sistema de Información Legislativa)
-Fuente: sil.gobernacion.gob.mx
-Cámara: Diputados (Cámara=1)
-Legislaturas disponibles: LVII a LXVI
+scraper.py — Raspador de perfiles legislativos del SIL.
 
-Uso:
-  python scraper.py --legislatura LXVI            # una sola legislatura
-  python scraper.py --legislatura LXIV,LXV,LXVI  # varias separadas por coma
-  python scraper.py --legislatura all             # las 10 legislaturas
+FUNCIÓN EN EL PROYECTO:
+    Es el primer paso del flujo completo. Descarga los perfiles de los
+    legisladores directamente del sitio web del SIL y los guarda como
+    CSV crudos. Su salida es la entrada del pipeline ETL (pipeline.py).
 
-Salida: data/<LEGISLATURA>.csv
-        data/scraper.log
+    Se ejecuta de forma independiente al ETL; no llama a ningún módulo
+    del paquete etl/. El ETL lee los CSV que este script produce.
+
+FUENTE DE DATOS:
+    Sistema de Información Legislativa (SIL)
+    URL base: https://sil.gobernacion.gob.mx
+    Cámara  : Diputados (Cámara=1)
+    Cobertura: Legislaturas LVII–LXVI (1997–presente), ~500 diputados c/u.
+
+SALIDA:
+    data/scraper/<run_ts>/
+        <LEGISLATURA>.csv   ← una fila por legislador, 36 columnas crudas
+        scraper.log         ← log completo de la corrida
+
+    El directorio <run_ts> (formato YYYYMMDD_HHMMSS) identifica de forma
+    única cada corrida del raspador, permitiendo conservar históricos y
+    que el ETL elija qué corrida procesar con --input-dir.
+
+REANUDACIÓN AUTOMÁTICA:
+    Si el scraper se interrumpe, relanzarlo con los mismos argumentos
+    retoma desde donde quedó: lee las referencias ya guardadas en el CSV
+    y omite los perfiles que ya fueron raspados.
+
+FLUJO INTERNO:
+    main()
+      └─ run_legislature(leg_name, leg_num, run_dir)
+           ├─ get_parties(leg_num)              # lista de partidos del SIL
+           ├─ get_legislator_refs(party_url)    # IDs de legisladores por partido
+           └─ scrape_profile(referencia)        # datos completos de cada perfil
+                ├─ parse_tftable(soup)          # datos personales (tabla principal)
+                └─ parse_tftable2(tabla)        # secciones anidadas (comisiones, trayectorias)
+
+USO:
+    python scraper.py --legislatura LXVI
+    python scraper.py --legislatura LXIV,LXV,LXVI
+    python scraper.py --legislatura all
 """
 
 import argparse
@@ -109,8 +140,8 @@ CSV_COLUMNS = [
     "error",  # Vacío si todo salió bien; mensaje de error en caso contrario
 ]
 
-# Directorio de salida donde se escriben los CSV y el log.
-OUTPUT_DIR = "data"
+# Directorio base; el subdirectorio de la corrida se crea en main().
+_BASE_SCRAPER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "scraper")
 
 
 # ---------------------------------------------------------------------------
@@ -654,7 +685,7 @@ def abrir_csv_escritor(csv_path, append=False):
 # Ejecución por legislatura
 # ---------------------------------------------------------------------------
 
-def run_legislature(leg_name, leg_num):
+def run_legislature(leg_name, leg_num, run_dir):
     """
     Raspa todos los legisladores de una legislatura y los guarda en CSV.
 
@@ -670,7 +701,7 @@ def run_legislature(leg_name, leg_num):
     El CSV se hace flush después de cada fila para minimizar pérdida
     de datos en caso de interrupción.
     """
-    csv_path = os.path.join(OUTPUT_DIR, f"{leg_name}.csv")
+    csv_path = os.path.join(run_dir, f"{leg_name}.csv")
     refs_raspadas = cargar_refs_existentes(csv_path)
     en_modo_append = bool(refs_raspadas)
 
@@ -680,7 +711,7 @@ def run_legislature(leg_name, leg_num):
     try:
         logger.info("=" * 60)
         logger.info("Legislatura %s (número %s)", leg_name, leg_num)
-        logger.info("Salida: %s", csv_path)
+        logger.info("Salida: %s", os.path.abspath(csv_path))
         logger.info("=" * 60)
         time.sleep(DELAY)
 
@@ -750,7 +781,7 @@ def run_legislature(leg_name, leg_num):
 
     logger.info(
         "✓ [%s] Completado: %s perfiles raspados, %s errores → %s",
-        leg_name, total, errores, csv_path,
+        leg_name, total, errores, os.path.abspath(csv_path),
     )
 
 
@@ -818,17 +849,17 @@ def resolver_legislaturas(arg):
     return [(n, LEGISLATURAS[n]) for n in nombres]
 
 
-def configurar_logging():
+def configurar_logging(run_dir):
     """
     Configura el sistema de logging para escribir simultáneamente a:
       - Consola (stdout): para seguimiento en tiempo real
-      - Archivo scraper.log en OUTPUT_DIR: registro persistente
+      - Archivo scraper.log en run_dir: registro persistente
 
     Formato: timestamp | nivel | módulo | mensaje
     El directorio de salida se crea aquí si no existe.
     """
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    ruta_log = os.path.join(OUTPUT_DIR, "scraper.log")
+    os.makedirs(run_dir, exist_ok=True)
+    ruta_log = os.path.join(run_dir, "scraper.log")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -838,7 +869,7 @@ def configurar_logging():
             logging.FileHandler(ruta_log, encoding="utf-8"),
         ],
     )
-    logger.info("Log iniciado: %s", ruta_log)
+    logger.info("Log iniciado: %s", os.path.abspath(ruta_log))
 
 
 # Logger a nivel de módulo — se inicializa antes de configurar_logging()
@@ -855,12 +886,18 @@ def main():
     Punto de entrada principal del script.
 
     1. Parsea argumentos de CLI
-    2. Configura logging
-    3. Aplica el delay elegido
-    4. Itera sobre las legislaturas objetivo y llama a run_legislature()
+    2. Crea directorio de corrida con timestamp
+    3. Configura logging
+    4. Aplica el delay elegido
+    5. Itera sobre las legislaturas objetivo y llama a run_legislature()
     """
+    import datetime
     args = parse_args()
-    configurar_logging()
+
+    run_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join(_BASE_SCRAPER_DIR, run_ts)
+
+    configurar_logging(run_dir)
 
     # Actualizar DELAY global con el valor del argumento --delay
     global DELAY
@@ -872,15 +909,22 @@ def main():
     logger.info("INICIANDO RASPADO")
     logger.info("Legislaturas objetivo: %s", [n for n, _ in objetivos])
     logger.info("Delay entre peticiones: %ss", DELAY)
-    logger.info("Directorio de salida: %s/", OUTPUT_DIR)
+    logger.info("Directorio de salida: %s", os.path.abspath(run_dir))
     logger.info("=" * 60)
 
     for leg_name, leg_num in objetivos:
-        run_legislature(leg_name, leg_num)
+        run_legislature(leg_name, leg_num, run_dir)
 
     logger.info("=" * 60)
     logger.info("✓ Proceso terminado.")
     logger.info("=" * 60)
+
+
+def scrape_all() -> None:
+    """Entry point para `uv run scrape-all` — raspa todas las legislaturas."""
+    import sys
+    sys.argv = ["scraper.py", "--legislatura", "all"]
+    main()
 
 
 if __name__ == "__main__":
