@@ -576,12 +576,43 @@ def _extract_trayectoria_admin(df: pd.DataFrame, leg_name: str = "?") -> pd.Data
         nivel_liderazgo_juvenil — ordinal 0–3 (0=ninguno, 1=participación,
                                   2=cargo, 3=liderazgo)
     """
-    parsed = df["trayectoria_administrativa"].apply(_safe_parse)
+    parsed_admin = df["trayectoria_administrativa"].apply(_safe_parse)
+    parsed_pol = (
+        df["trayectoria_politica"].apply(_safe_parse)
+        if "trayectoria_politica" in df.columns
+        else pd.Series([[] for _ in range(len(df))], index=df.index)
+    )
 
-    def _process_row(items: list) -> dict:
+    def _scan_juv(exp: str, tiene_juv: int, lider_pdo: int, lider_gob: int,
+                  miembro_juv: int, max_juv_lv: int) -> tuple:
+        if not _JUV_KEYWORD.search(exp):
+            return tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv
+        tiene_juv = 1
+        is_lider  = bool(_JUV_LIDER_ROLE.search(exp))
+        is_cargo  = bool(_JUV_CARGO_ROLE.search(exp))
+        is_pdo    = bool(_JUV_PARTIDO_ORG.search(exp))
+        is_gob    = bool(_JUV_GOBIERNO_ORG.search(exp))
+        if (is_lider or is_cargo) and is_pdo:
+            lider_pdo = 1
+        if is_lider and is_gob:
+            lider_gob = 1
+        if not (is_lider or is_cargo):
+            miembro_juv = 1
+        juv_lv = 3 if is_lider else (2 if is_cargo else 1)
+        if juv_lv > max_juv_lv:
+            max_juv_lv = juv_lv
+        return tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv
+
+    def _process_row(admin_items: list, pol_items: list) -> dict:
         clean_exps = [
             item["Experiencia"].strip()
-            for item in items
+            for item in admin_items
+            if item.get("Experiencia", "").strip()
+            and not _RE_TRAY_HEADER.search(item.get("Del año", ""))
+        ]
+        pol_exps = [
+            item["Experiencia"].strip()
+            for item in pol_items
             if item.get("Experiencia", "").strip()
             and not _RE_TRAY_HEADER.search(item.get("Del año", ""))
         ]
@@ -610,23 +641,14 @@ def _extract_trayectoria_admin(df: pd.DataFrame, leg_name: str = "?") -> pd.Data
                         max_level = level
                     break
 
-            if _JUV_KEYWORD.search(exp):
-                tiene_juv = 1
-                is_lider  = bool(_JUV_LIDER_ROLE.search(exp))
-                is_cargo  = bool(_JUV_CARGO_ROLE.search(exp))
-                is_pdo    = bool(_JUV_PARTIDO_ORG.search(exp))
-                is_gob    = bool(_JUV_GOBIERNO_ORG.search(exp))
+            tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv = _scan_juv(
+                exp, tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv
+            )
 
-                if is_lider and is_pdo:
-                    lider_pdo = 1
-                if is_lider and is_gob:
-                    lider_gob = 1
-                if not (is_lider or is_cargo):
-                    miembro_juv = 1
-
-                juv_lv = 3 if is_lider else (2 if is_cargo else 1)
-                if juv_lv > max_juv_lv:
-                    max_juv_lv = juv_lv
+        for exp in pol_exps:
+            tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv = _scan_juv(
+                exp, tiene_juv, lider_pdo, lider_gob, miembro_juv, max_juv_lv
+            )
 
         return {
             "n_trayectoria_admin": len(clean_exps),
@@ -641,7 +663,10 @@ def _extract_trayectoria_admin(df: pd.DataFrame, leg_name: str = "?") -> pd.Data
         }
 
     if "trayectoria_administrativa" in df.columns:
-        results    = parsed.apply(_process_row)
+        results = pd.Series(
+            [_process_row(a, p) for a, p in zip(parsed_admin, parsed_pol)],
+            index=df.index,
+        )
         result_df  = pd.DataFrame(list(results), index=df.index)
         for col in result_df.columns:
             df[col] = result_df[col].astype(int)
