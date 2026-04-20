@@ -48,6 +48,42 @@ LEG_START_YEAR: dict[str, int] = {
 # Codificación ordinal del último grado de estudios.
 # 0 = desconocido/faltante; valores más altos = mayor escolaridad.
 # Esta escala permite usar la columna como variable numérica en modelos ML.
+ENTIDAD_CODIGO: dict[str, str] = {
+    "Aguascalientes": "AGS",
+    "Baja California": "BC",
+    "Baja California Sur": "BCS",
+    "Campeche": "CAMP",
+    "Chiapas": "CHIS",
+    "Chihuahua": "CHIH",
+    "Ciudad de México": "CDMX",
+    "Distrito Federal": "CDMX",
+    "Coahuila": "COAH",
+    "Colima": "COL",
+    "Durango": "DGO",
+    "Guanajuato": "GTO",
+    "Guerrero": "GRO",
+    "Hidalgo": "HGO",
+    "Jalisco": "JAL",
+    "México": "MEX",
+    "Michoacán": "MICH",
+    "Morelos": "MOR",
+    "Nayarit": "NAY",
+    "Nuevo León": "NL",
+    "Oaxaca": "OAX",
+    "Puebla": "PUE",
+    "Querétaro": "QRO",
+    "Quintana Roo": "QROO",
+    "San Luis Potosí": "SLP",
+    "Sinaloa": "SIN",
+    "Sonora": "SON",
+    "Tabasco": "TAB",
+    "Tamaulipas": "TAMPS",
+    "Tlaxcala": "TLAX",
+    "Veracruz": "VER",
+    "Yucatán": "YUC",
+    "Zacatecas": "ZAC",
+}
+
 GRADO_ORDINAL: dict[str, int] = {
     "no disponible": 0,
     "secundaria": 1,
@@ -72,6 +108,8 @@ DROP_COLUMNS = [
     "periodo_de_la_legislatura",  # redundante con legislatura_num
     "_source_file",  # columna auxiliar creada por load.py, sin valor analítico
     "licencias_reincorporaciones",  # eliminada del análisis
+    "otros_rubros",       # reemplazada por n_otros_rubros (transform.py)
+    "observaciones",      # reemplazada por n_observaciones (transform.py)
     "entidad",
     "ciudad",
     "ubicacion",
@@ -545,6 +583,50 @@ def _text_length(series: pd.Series) -> pd.Series:
     return series.fillna("").str.split().str.len().astype(int)
 
 
+# Regex para parsear 'region_de_eleccion'.
+# Grupo 1 = nombre de entidad; grupo 2 = tipo (Distrito|Circunscripción); grupo 3 = valor.
+_RE_REGION = re.compile(
+    r"Entidad:\s*(?P<entidad>.+?)\s+"
+    r"(?P<tipo>Distrito|Circunscripci[oó]n):\s*(?P<valor>.+)",
+    re.IGNORECASE,
+)
+
+
+def _extract_region(series: pd.Series) -> pd.DataFrame:
+    """
+    Parsea 'region_de_eleccion' en dos columnas derivadas.
+
+    Formato de entrada: "Entidad: X Distrito: N (ciudad)"
+                     o  "Entidad: X Circunscripción: Ordinal"
+
+    Retorna DataFrame con:
+      entidad_codigo  — código INEGI de 2–4 letras (ej. 'JAL', 'CDMX').
+                        'DESCONOCIDO' si el nombre no está en ENTIDAD_CODIGO.
+      distrito_circ   — texto tras "Distrito: " o "Circunscripción: "
+                        (ej. '4 (Zapopan)' o 'Tercera').
+    """
+    parsed = series.str.extract(_RE_REGION)
+    entidad_raw = parsed["entidad"].str.strip()
+    entidad_codigo = entidad_raw.map(ENTIDAD_CODIGO).fillna("DESCONOCIDO")
+
+    unmapped = entidad_raw[
+        entidad_codigo.eq("DESCONOCIDO") & entidad_raw.notna() & entidad_raw.ne("N/A")
+    ].unique()
+    if len(unmapped):
+        logger.warning(
+            "region_de_eleccion: entidad sin mapeo → 'DESCONOCIDO': %s",
+            sorted(unmapped.tolist()),
+        )
+
+    return pd.DataFrame(
+        {
+            "entidad_codigo": entidad_codigo,
+            "distrito_circ": parsed["valor"].str.strip(),
+        },
+        index=series.index,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Función principal
 # ---------------------------------------------------------------------------
@@ -567,8 +649,9 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
       5. Codificar suplente_referencia como entero.
       6. Crear flags de presencia para campos de contacto.
       7. Calcular longitud de texto para campos descriptivos.
-      8. Eliminar columnas de texto ya procesadas.
-      9. Establecer diputado_id como índice.
+      8. Extraer entidad_codigo y distrito_circ de region_de_eleccion.
+      9. Eliminar columnas de texto ya procesadas.
+     10. Establecer diputado_id como índice.
 
     Parámetros
     ----------
@@ -582,8 +665,13 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()  # no modificar el DataFrame original que recibió pipeline.py
 
     # Identificar la legislatura para incluirla en los mensajes de log.
+    # _source_file contiene el nombre romano (ej. "LXVI") asignado por load.py,
+    # que coincide con las claves de LEG_START_YEAR. legislatura_num es numérico
+    # ("66") y no sirve para el lookup.
     leg_name = (
-        str(df["legislatura_num"].iloc[0]) if "legislatura_num" in df.columns else "?"
+        str(df["_source_file"].iloc[0]) if "_source_file" in df.columns
+        else str(df["legislatura_num"].iloc[0]) if "legislatura_num" in df.columns
+        else "?"
     )
 
     # --- 1. Eliminar columnas inútiles ---
@@ -735,6 +823,19 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         df["fue_senador"].sum(),
         (df["n_cargos_legislativos_prev"] == 0).sum(),
     )
+
+    # --- 8b. region_de_eleccion → entidad_codigo + distrito_circ ---
+    if "region_de_eleccion" in df.columns:
+        region_df = _extract_region(df["region_de_eleccion"])
+        region_df.index = df.index
+        df = pd.concat([df, region_df], axis=1)
+        df.drop(columns=["region_de_eleccion"], inplace=True)
+        logger.info(
+            "[%s] region_de_eleccion: %d entidades únicas, %d desconocidas",
+            leg_name,
+            df["entidad_codigo"].nunique(),
+            (df["entidad_codigo"] == "DESCONOCIDO").sum(),
+        )
 
     # --- 9. Eliminar columnas de texto ya procesadas ---
     # Después de extraer flags y conteos de palabras, el texto original
