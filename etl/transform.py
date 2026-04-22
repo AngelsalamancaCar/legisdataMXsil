@@ -86,10 +86,12 @@ COMISION_CANONICAL: dict[str, str] = {
 
     # ── Ciencia, Tecnología e Innovación ──────────────────────────────────
     "Ciencia y Tecnología": "Ciencia, Tecnología e Innovación",
+    "De Agenda Digital y Tecnologías de la Información": "Ciencia, Tecnología e Innovación",
 
     # ── Medio Ambiente y Recursos Naturales ───────────────────────────────
     "Ecología y Medio Ambiente": "Medio Ambiente y Recursos Naturales",
     "Medio Ambiente, Sustentabilidad, Cambio Climático y Recursos Naturales": "Medio Ambiente y Recursos Naturales",
+    "Bosques y Selvas": "Medio Ambiente y Recursos Naturales",
 
     # ── Cambio Climático y Sostenibilidad ─────────────────────────────────
     "Cambio Climático": "Cambio Climático y Sostenibilidad",
@@ -104,13 +106,15 @@ COMISION_CANONICAL: dict[str, str] = {
     "Pueblos Indígenas": "Pueblos Indígenas y Afromexicanos",
 
     # ── Derechos de la Niñez y Adolescencia ──────────────────────────────
-    "Derechos de la Niñez": "Derechos de la Niñez y Adolescencia",
+    "Derechos de la Niñez":                    "Derechos de la Niñez y Adolescencia",
+    "Derechos de la Niñez y de la Adolescencia": "Derechos de la Niñez y Adolescencia",
 
     # ── Economía, Comercio y Competitividad ───────────────────────────────
-    "Comercio y Fomento Industrial": "Economía, Comercio y Competitividad",
-    "Economía": "Economía, Comercio y Competitividad",
-    "Comercio": "Economía, Comercio y Competitividad",
-    "Competitividad": "Economía, Comercio y Competitividad",
+    "Comercio y Fomento Industrial":    "Economía, Comercio y Competitividad",
+    "Economía":                         "Economía, Comercio y Competitividad",
+    "Comercio":                         "Economía, Comercio y Competitividad",
+    "Competitividad":                   "Economía, Comercio y Competitividad",
+    "Patrimonio y Fomento Industrial":  "Economía, Comercio y Competitividad",
 
     # ── Economía Social y Fomento del Cooperativismo ──────────────────────
     "Fomento Cooperativo": "Economía Social y Fomento del Cooperativismo",
@@ -142,7 +146,9 @@ COMISION_CANONICAL: dict[str, str] = {
     "Vigilancia de la Contaduría Mayor de Hacienda": "Vigilancia de la Auditoría Superior de la Federación",
 
     # ── Régimen, Reglamentos y Prácticas Parlamentarias ───────────────────
-    "Reglamentos y Prácticas Parlamentarias": "Régimen, Reglamentos y Prácticas Parlamentarias",
+    "Reglamentos y Prácticas Parlamentarias":          "Régimen, Reglamentos y Prácticas Parlamentarias",
+    "Reglamento y Prácticas Parlamentarias":           "Régimen, Reglamentos y Prácticas Parlamentarias",
+    "Régimen, Reglamento y Prácticas Parlamentarias":  "Régimen, Reglamentos y Prácticas Parlamentarias",
 
     # ── Protección Civil y Prevención de Desastres ────────────────────────
     "Protección Civil": "Protección Civil y Prevención de Desastres",
@@ -157,19 +163,33 @@ COMISION_CANONICAL: dict[str, str] = {
     "Fortalecimiento al Federalismo": "Fortalecimiento del Federalismo",
 
     # ── Federalismo y Desarrollo Municipal ───────────────────────────────
-    "Desarrollo Municipal": "Federalismo y Desarrollo Municipal",
+    "Desarrollo Municipal":    "Federalismo y Desarrollo Municipal",
+    "Fortalecimiento Municipal": "Federalismo y Desarrollo Municipal",
 
     # ── Comité de Información, Gestoría y Quejas ──────────────────────────
     "Información Gestoría y Quejas": "Comité de Información, Gestoría y Quejas",
 
     # ── Justicia ──────────────────────────────────────────────────────────
     "Justicia y Derechos Humanos": "Justicia",
+    "Justicia y Derechos Humanos (vigente hasta el 5-dic-2006)": "Justicia",
 
     # ── Educación Pública y Servicios Educativos ──────────────────────────
     "Educación": "Educación Pública y Servicios Educativos",
 
     # ── Desarrollo y Conservación Rural, Agrícola y Autosuficiencia Alimentaria
-    "Desarrollo Rural": "Desarrollo y Conservación Rural, Agrícola y Autosuficiencia Alimentaria",
+    "Desarrollo Rural":  "Desarrollo y Conservación Rural, Agrícola y Autosuficiencia Alimentaria",
+
+    # ── Energía ───────────────────────────────────────────────────────────
+    "Energéticos": "Energía",
+
+    # ── Agricultura y Ganadería (LVII unified committee, later split) ─────
+    "Agricultura": "Agricultura y Ganadería",
+
+    # ── Desarrollo Social ─────────────────────────────────────────────────
+    "Programas Sociales": "Desarrollo Social",
+
+    # ── Jurisdiccional ────────────────────────────────────────────────────
+    "Sección Instructora": "Jurisdiccional",
 
     # ── Ciudad de México ──────────────────────────────────────────────────
     "Distrito Federal": "Ciudad de México",
@@ -188,13 +208,16 @@ MAJOR_COMISIONES: list[str] = [
     "Asuntos Frontera Norte",
     "Asuntos Frontera Sur",
     "Asuntos Frontera Sur-Sureste",
+    "Asuntos Fronterizos",
     "Asuntos Migratorios",
     "Atención a Grupos Vulnerables",
     "Bienestar",
     "Cambio Climático y Sostenibilidad",
     "Ciencia, Tecnología e Innovación",
     "Ciudad de México",
+    "Bicamaral de Seguridad Nacional",
     "Comité de Administración",
+    "Comité de Ética",
     "Comité de Información, Gestoría y Quejas",
     "Comité del Centro de Estudios de Derecho e Investigaciones Parlamentarias",
     "Comité del Centro de Estudios de las Finanzas Públicas",
@@ -222,8 +245,10 @@ MAJOR_COMISIONES: list[str] = [
     "Infraestructura",
     "Jurisdiccional",
     "Justicia",
+    "Diversidad",
     "Juventud",
     "Juventud y Deporte",
+    "Juventud y Diversidad Sexual",
     "Marina",
     "Medio Ambiente y Recursos Naturales",
     "Participación Ciudadana",
@@ -250,6 +275,84 @@ MAJOR_COMISIONES: list[str] = [
     "Vivienda",
     "Zonas Metropolitanas",
 ]
+
+# Classification of canonical commission names into three institutional tiers.
+# Comités administrativos (5 entries) are intentionally excluded — they are not
+# legislative commissions, which is why sum(nodal+tematica+lastre) < n_comisiones.
+COMISION_TIPO: dict[str, str] = {
+    # ── Nodales (12) — gatekeeping, fiscal, constitutional, oversight ─────────
+    "Función Pública":                                      "nodal",
+    "Gobernación y Población":                              "nodal",
+    "Hacienda y Crédito Público":                           "nodal",
+    "Jurisdiccional":                                       "nodal",
+    "Justicia":                                             "nodal",
+    "Presupuesto y Cuenta Pública":                         "nodal",
+    "Puntos Constitucionales":                              "nodal",
+    "Reforma Política-Electoral":                           "nodal",
+    "Régimen, Reglamentos y Prácticas Parlamentarias":      "nodal",
+    "Seguridad Ciudadana":                                  "nodal",
+    "Transparencia y Anticorrupción":                       "nodal",
+    "Vigilancia de la Auditoría Superior de la Federación": "nodal",
+
+    # ── Temáticas (33) — regular policy domains ───────────────────────────────
+    "Agricultura y Ganadería":                                              "tematica",
+    "Agricultura y Sistemas de Riego":                                      "tematica",
+    "Asuntos Migratorios":                                                  "tematica",
+    "Atención a Grupos Vulnerables":                                        "tematica",
+    "Bienestar":                                                            "tematica",
+    "Cambio Climático y Sostenibilidad":                                    "tematica",
+    "Ciencia, Tecnología e Innovación":                                     "tematica",
+    "Ciudad de México":                                                     "tematica",
+    "Comunicaciones y Transportes":                                         "tematica",
+    "Defensa Nacional":                                                     "tematica",
+    "Derechos de la Niñez y Adolescencia":                                  "tematica",
+    "Derechos Humanos":                                                     "tematica",
+    "Desarrollo Social":                                                    "tematica",
+    "Desarrollo y Conservación Rural, Agrícola y Autosuficiencia Alimentaria": "tematica",
+    "Desarrollo Metropolitano, Urbano, Ordenamiento Territorial y Movilidad":  "tematica",
+    "Economía, Comercio y Competitividad":                                  "tematica",
+    "Educación Pública y Servicios Educativos":                             "tematica",
+    "Energía":                                                              "tematica",
+    "Federalismo y Desarrollo Municipal":                                   "tematica",
+    "Ganadería":                                                            "tematica",
+    "Igualdad de Género":                                                   "tematica",
+    "Infraestructura":                                                      "tematica",
+    "Marina":                                                               "tematica",
+    "Medio Ambiente y Recursos Naturales":                                  "tematica",
+    "Pueblos Indígenas y Afromexicanos":                                    "tematica",
+    "Recursos Hidráulicos, Agua Potable y Saneamiento":                     "tematica",
+    "Reforma Agraria":                                                      "tematica",
+    "Relaciones Exteriores":                                                "tematica",
+    "Salud":                                                                "tematica",
+    "Seguridad Pública":                                                    "tematica",
+    "Seguridad Social":                                                     "tematica",
+    "Trabajo y Previsión Social":                                           "tematica",
+    "Vivienda":                                                             "tematica",
+
+    # ── Temáticas adicionales ─────────────────────────────────────────────────
+    "Bicamaral de Seguridad Nacional":              "tematica",
+    "Diversidad":                                   "tematica",
+
+    # ── Lastre (16 → 19) — low prestige, infrequent ───────────────────────────
+    "Asuntos Frontera Norte":                       "lastre",
+    "Asuntos Frontera Sur":                         "lastre",
+    "Asuntos Frontera Sur-Sureste":                 "lastre",
+    "Asuntos Fronterizos":                          "lastre",
+    "Cultura y Cinematografía":                     "lastre",
+    "Deporte":                                      "lastre",
+    "Economía Social y Fomento del Cooperativismo": "lastre",
+    "Fortalecimiento del Federalismo":              "lastre",
+    "Juventud":                                     "lastre",
+    "Juventud y Deporte":                           "lastre",
+    "Juventud y Diversidad Sexual":                 "lastre",
+    "Participación Ciudadana":                      "lastre",
+    "Pesca":                                        "lastre",
+    "Población":                                    "lastre",
+    "Protección Civil y Prevención de Desastres":   "lastre",
+    "Radio, Televisión y Cinematografía":           "lastre",
+    "Turismo":                                      "lastre",
+    "Zonas Metropolitanas":                         "lastre",
+}
 
 # Precomputed slug → canonical mapping for fast lookup in column names.
 # Generated once at module load; never mutated at runtime.
@@ -280,7 +383,7 @@ def _parse_comision_name(raw: str) -> tuple[str, str, str]:
     canonical_name — after whitespace normalization, body strip, and mapping
                      via COMISION_CANONICAL (falls back to the cleaned name).
     """
-    norm = re.sub(r"\s+", " ", raw).strip()
+    norm = re.sub(r"\s+", " ", raw).strip().rstrip(".")
 
     # 1. Detect body from the raw string (before stripping).
     if "Com. Perm." in norm:
@@ -371,6 +474,10 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
             elif puesto == "Secretario":
                 n_sec += 1
 
+        n_nodal    = sum(1 for c in comision_set if COMISION_TIPO.get(c) == "nodal")
+        n_tematica = sum(1 for c in comision_set if COMISION_TIPO.get(c) == "tematica")
+        n_lastre   = sum(1 for c in comision_set if COMISION_TIPO.get(c) == "lastre")
+
         return {
             "n_comisiones": n_com,
             "n_comisiones_especiales": n_esp,
@@ -378,6 +485,9 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
             "n_secretarias": n_sec,
             "presidente_comision": int(n_pdte > 0),
             "lider_comision": int((n_pdte + n_sec) > 0),
+            "n_comisiones_nodales": n_nodal,
+            "n_comisiones_tematicas": n_tematica,
+            "n_comisiones_lastre": n_lastre,
             "_cset": comision_set,
         }
 
@@ -387,28 +497,24 @@ def _extract_comisiones(df: pd.DataFrame, leg_name: str = "?") -> pd.DataFrame:
     scalar_cols = [
         "n_comisiones", "n_comisiones_especiales",
         "n_presidencias", "n_secretarias", "presidente_comision", "lider_comision",
+        "n_comisiones_nodales", "n_comisiones_tematicas", "n_comisiones_lastre",
     ]
     for col in scalar_cols:
         df[col] = result_df[col].astype(int)
 
-    # Binary flag columns — one per major canonical commission.
-    csets = result_df["_cset"]
-    n_flag_cols = 0
-    for canon in MAJOR_COMISIONES:
-        col = f"comision_{_CANONICAL_SLUG[canon]}"
-        df[col] = csets.apply(lambda s, c=canon: int(c in s))
-        n_flag_cols += 1
-
     logger.info(
         "[%s] comisiones: n_com=%d, especiales=%d | "
-        "presidentes=%d, secretarios=%d, líderes=%d | flags=%d",
+        "nodales=%d, temáticas=%d, lastre=%d | "
+        "presidentes=%d, secretarios=%d, líderes=%d",
         leg_name,
         df["n_comisiones"].sum(),
         df["n_comisiones_especiales"].sum(),
+        df["n_comisiones_nodales"].sum(),
+        df["n_comisiones_tematicas"].sum(),
+        df["n_comisiones_lastre"].sum(),
         df["n_presidencias"].sum(),
         df["n_secretarias"].sum(),
         df["lider_comision"].sum(),
-        n_flag_cols,
     )
 
     df.drop(columns=["comisiones"], inplace=True)
