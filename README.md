@@ -17,7 +17,7 @@ scraper.py  →  data/scraper/<run_ts>/  →  pipeline.py  →  data/etl/<run_ts
 1. **scraper.py** descarga los perfiles del SIL y los guarda como CSV crudos.
 2. **pipeline.py** lee esos CSV, los procesa con el paquete `etl/` y guarda los resultados listos para análisis.
 
-Cada ejecución de cualquiera de los dos scripts crea su propio subdirectorio con timestamp, de modo que las corridas no se sobreescriben y se puede rastrear el historial.
+Cada ejecución crea su propio subdirectorio con timestamp, de modo que las corridas no se sobreescriben y se puede rastrear el historial.
 
 ```
 legisdatamxsil/
@@ -32,12 +32,13 @@ legisdatamxsil/
 ├── data/
 │   ├── scraper/
 │   │   └── <YYYYMMDD_HHMMSS>/
-│   │       ├── <LEGISLATURA>.csv   # CSV crudo: una fila por legislador, 36 columnas
+│   │       ├── <LEGISLATURA>.csv   # CSV crudo: una fila por legislador, 32 columnas
 │   │       └── scraper.log
 │   └── etl/
 │       └── <YYYYMMDD_HHMMSS>/
 │           ├── <LEGISLATURA>_<ts>.csv  # CSV procesado: una fila por diputado_id
 │           └── etl.log
+├── pyproject.toml
 ├── requirements.txt
 └── Makefile
 ```
@@ -45,6 +46,19 @@ legisdatamxsil/
 ---
 
 ## Inicio rápido
+
+### Con uv (recomendado)
+
+```bash
+uv sync
+
+# Raspar una legislatura y ejecutar el ETL
+uv run scrape-all          # todas las legislaturas
+uv run etl-all             # ETL en todas
+uv run etl-one --legislatura LXVI  # ETL en una
+```
+
+### Con pip / Make
 
 ```bash
 make install
@@ -54,6 +68,9 @@ make all LEG=LXVI
 
 # Todo (LVII–LXVI)
 make all-full
+
+# Limpiar todas las corridas anteriores
+make clean
 ```
 
 ---
@@ -61,7 +78,7 @@ make all-full
 ## Paso 1 — Raspador (`scraper.py`)
 
 Descarga todos los perfiles de legisladores del SIL para las legislaturas indicadas.
-Salida: `data/scraper/<run_ts>/<LEGISLATURA>.csv` — una fila por diputado, 36 columnas crudas.
+Salida: `data/scraper/<run_ts>/<LEGISLATURA>.csv` — una fila por diputado, 32 columnas crudas.
 
 ```bash
 make scrape LEG=LXVI
@@ -71,13 +88,16 @@ make scrape-all
 python scraper.py --legislatura LXVI
 python scraper.py --legislatura LXIV,LXV,LXVI
 python scraper.py --legislatura all
+
+# ajustar pausa entre peticiones (default: 1.5s):
+python scraper.py --legislatura LXVI --delay 2.0
 ```
 
 **Cómo funciona internamente:**
 
 | Función | Qué hace |
 |---|---|
-| `get_parties(leg_num)` | Obtiene la lista de partidos políticos de la legislatura desde la página de Numeralia del SIL |
+| `get_parties(leg_num)` | Obtiene la lista de partidos políticos (activos y en licencia) de la legislatura desde la página de Numeralia del SIL |
 | `get_legislator_refs(party_url)` | Extrae los IDs (Referencia) de todos los legisladores de un partido |
 | `scrape_profile(referencia)` | Descarga y parsea el perfil completo de un legislador |
 | `parse_tftable(soup)` | Extrae datos personales desde la tabla principal del perfil |
@@ -86,8 +106,10 @@ python scraper.py --legislatura all
 
 **Notas:**
 - Reanuda automáticamente si se interrumpe (omite referencias ya raspadas)
+- Captura tanto legisladores activos como los que tomaron licencia (`en_licencia`)
 - Verificación SSL desactivada (el SIL usa una cadena GoDaddy incompleta)
 - Pausa de 1.5 s entre peticiones para no saturar el servidor (`--delay` para cambiar)
+- 3 reintentos automáticos con pausa de 3 s ante fallos de red
 
 ---
 
@@ -104,7 +126,10 @@ make etl-all
 python pipeline.py --legislatura LXVI
 python pipeline.py --legislatura all
 
-# Usar una corrida específica del scraper en lugar de la más reciente:
+# con output verbose en consola:
+python pipeline.py --legislatura LXVI --verbose
+
+# usar una corrida específica del scraper en lugar de la más reciente:
 python pipeline.py --legislatura all --input-dir data/scraper/20260418_140000/
 ```
 
