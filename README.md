@@ -188,7 +188,7 @@ y las convierte en características numéricas. Opera en cuatro sub-pasos:
 
 | Columna JSON | → Características |
 |---|---|
-| `comisiones` | → `n_comisiones`, `n_comisiones_especiales`, `n_presidencias`, `n_secretarias`, `presidente_comision`, `lider_comision` + flag binario `comision_<slug>` por cada comisión en `MAJOR_COMISIONES` (~63 flags) |
+| `comisiones` | → `n_comisiones`, `n_comisiones_especiales`, `n_presidencias`, `n_secretarias`, `n_comisiones_nodales`, `n_comisiones_tematicas`, `n_comisiones_lastre`, `presidente_comision`, `lider_comision` + flag binario `comision_<slug>` por cada comisión en `MAJOR_COMISIONES` (~71 flags) |
 
 **Trayectoria administrativa** (`_extract_trayectoria_admin`):
 
@@ -226,7 +226,7 @@ Recibe el DataFrame completamente plano y lo guarda en:
 
 ## Esquema de salida del ETL
 
-El DataFrame final tiene una fila por `diputado_id` y aproximadamente 130 columnas agrupadas así:
+El DataFrame final tiene una fila por `diputado_id` y aproximadamente 140 columnas agrupadas así:
 
 ### Identificadores y metadatos
 
@@ -267,9 +267,12 @@ El DataFrame final tiene una fila por `diputado_id` y aproximadamente 130 column
 | `n_comisiones_especiales` | int | Membresías en comisiones especiales |
 | `n_presidencias` | int | Roles de Presidente, Vicepresidente o Copresidente |
 | `n_secretarias` | int | Roles de Secretario en comisiones |
+| `n_comisiones_nodales` | int | Membresías en comisiones nodales (fiscales, constitucionales, de vigilancia) |
+| `n_comisiones_tematicas` | int | Membresías en comisiones temáticas (política pública sectorial) |
+| `n_comisiones_lastre` | int | Membresías en comisiones de baja centralidad legislativa |
 | `presidente_comision` | int | 1 si tuvo al menos un rol presidencial |
 | `lider_comision` | int | 1 si tuvo cualquier rol de liderazgo (presidente o secretario) |
-| `comision_<slug>` × ~63 | int | 1 si perteneció a esa comisión (una columna por cada comisión en `MAJOR_COMISIONES`) |
+| `comision_<slug>` × ~71 | int | 1 si perteneció a esa comisión (una columna por cada comisión en `MAJOR_COMISIONES`) |
 
 ### Trayectoria administrativa
 
