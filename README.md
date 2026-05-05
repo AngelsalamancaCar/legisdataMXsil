@@ -346,3 +346,24 @@ urllib3>=2.6.3
 pandas>=2.0.0
 numpy>=1.24.0
 ```
+## License
+
+This repository is made available for non-commercial, educational, research, and personal use.
+
+### Code
+
+The source code, scripts, notebooks, and software components in this repository are licensed under the **PolyForm Noncommercial License 1.0.0**.
+
+Commercial use, including use by for-profit entities, paid consulting work, commercial products, proprietary services, or revenue-generating applications, is not permitted without prior written authorization from the copyright holder.
+
+### Documentation and analysis
+
+Documentation, reports, charts, and written materials are licensed under **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** unless otherwise stated.
+
+### Data
+
+This project may process information obtained from public institutional sources. Original public-source data remains subject to the terms, rights, and conditions of its original source. This repository only licenses the author’s code, data-processing logic, derived structures, annotations, documentation, and analytical outputs where legally applicable.
+
+### Commercial licensing
+
+For commercial use, please contact the repository owner to request a separate commercial license.
